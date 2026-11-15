@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Readback · slot checks for Hinglish voice agents</title>
+  <meta name="description" content="Find the turns where a Hinglish voice agent would act on a misheard number, a lost 'nahi' or a misheard promise to pay, and see what each confirm-back policy would catch and cost. Runs in the browser.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d6e5a'/%3E%3Cpath d='M7 17v-2M11 20v-8M15 23V9M19 19v-6' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M21.5 17.5l2.5 2.5 4-5' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    try { const t = localStorage.getItem('rb-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-in">
+      <a class="brand" href="#" aria-label="Readback home">
+        <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--accent)"/><path d="M7 17v-2M11 20v-8M15 23V9M19 19v-6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M21.5 17.5l2.5 2.5 4-5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Readback</span>
+        <span class="tag mono">beta</span>
+      </a>
+      <nav class="nav">
+        <a href="#how">How it works</a>
+        <a href="#limits">Limits</a>
+        <a href="https://github.com/techi101/squadstack-readback" target="_blank" rel="noopener">GitHub</a>
+        <button id="theme" class="icon-btn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="i-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <svg class="i-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="wrap hero">
+      <p class="eyebrow mono">Critical-slot QA for Indian phone voice agents</p>
+      <h1>Find the turns where your agent acts on a misheard number.</h1>
+      <p class="lede">Give it what the caller said and what the recogniser heard. Readback pulls out the slots that change what the agent does next (amounts, dates, a <span lang="hi">“नहीं”</span>, a promise to pay, a request for a human), flags every one the recogniser got wrong, and shows what each confirm-back policy would catch and what it costs in talk time.</p>
+      <div class="hero-meta">
+        <span class="pill"><span class="dot"></span>Runs in your browser. Nothing is uploaded.</span>
+        <span class="pill">No API key needed</span>
+        <span class="pill">Devanagari + romanised Hinglish + English</span>
+      </div>
+    </section>
+
+    <section class="wrap app" aria-label="Workspace">
+      <div class="toolbar">
+        <div class="seg" role="tablist" aria-label="Data source">
+          <button role="tab" id="tab-sample" aria-selected="true" data-src="sample">Sample run</button>
+          <button role="tab" id="tab-paste" aria-selected="false" data-src="paste">Paste transcripts</button>
+        </div>
+        <label class="select">
+          <span class="mono">Campaign</span>
+          <select id="campaign"></select>
+        </label>
+      </div>
+
+      <div id="sample-note" class="notice">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span id="sample-label"></span>
+      </div>
+
+      <div id="paste-panel" class="card paste" hidden>
+        <div class="paste-head">
+          <div>
+            <h2>Paste transcripts</h2>
+            <p class="muted">One turn per line as <code>said ||| heard</code> (or tab-separated). Start a call with <code># call-id | campaign</code>. JSON works too: <code>[{"id","campaign","turns":[{"ref","hyp"}]}]</code>, or rows shaped like the SquadStack ASR benchmark <code>results</code> config.</p>
+          </div>
+          <div class="paste-actions">
+            <button class="btn ghost" id="load-example" type="button">Load example</button>
+            <button class="btn primary" id="analyse" type="button">Analyse</button>
+          </div>
+        </div>
+        <div class="system-row" id="system-row" hidden>
+          <label class="select"><span class="mono">System column</span><select id="system"></select></label>
+        </div>
+        <textarea id="paste" spellcheck="false" placeholder="# BF-9 | BFSI · EMI reminder&#10;EMI bees tareekh ko kar dunga ||| EMI tees tareekh ko kar dunga&#10;nahi abhi salary nahi aayi ||| haan abhi salary nahi aayi"></textarea>
+        <p id="paste-error" class="error" role="alert" hidden></p>
+      </div>
+
+      <div id="results">
+        <div class="kpis" id="kpis"></div>
+
+        <div class="grid">
+          <div class="card table-card">
+            <div class="card-head">
+              <div>
+                <h2>Slot errors</h2>
+                <p class="muted" id="errors-sub"></p>
+              </div>
+              <div class="filters" id="cat-filters" role="group" aria-label="Filter by type"></div>
+            </div>
+            <div class="table-wrap">
+              <table class="errors">
+                <thead><tr><th>Call</th><th>Type</th><th>Caller said</th><th>Agent heard</th><th>Value</th><th class="right">Policy</th></tr></thead>
+                <tbody id="error-rows"></tbody>
+              </table>
+            </div>
+            <div class="empty" id="errors-empty" hidden>
+              <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true"><circle cx="24" cy="24" r="18" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 24.5l5.5 5.5L32 19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <p class="empty-title">No slot errors here</p>
+              <p class="muted" id="empty-text">Every number, yes/no, payment promise and handoff request was heard the same as it was said.</p>
+            </div>
+          </div>
+
+          <aside class="card policy-card">
+            <div class="card-head">
+              <div>
+                <h2>Readback policy</h2>
+                <p class="muted">What the agent confirms back, decided only from what it heard.</p>
+              </div>
+            </div>
+            <div id="policies" class="policies" role="radiogroup" aria-label="Readback policy"></div>
+            <label class="secs">
+              <span>Seconds per readback <span class="muted">(your assumption)</span></span>
+              <input id="secs" type="number" min="1" max="15" step="0.5" value="3">
+            </label>
+            <div class="callout">
+              <p><strong>Handoff misses are not a readback problem.</strong> If the recogniser breaks “इंसान” or “manager”, the agent never knows to escalate. That needs a guard in front of the agent.</p>
+              <p class="muted small">Related work by the author: a rule guard in front of a stand-in LLM agent raised human-handoff recall from 8/16 to 15/16 on held-out synthetic GP-clinic calls, and must-escalate recall from 14/16 to 16/16 on synthetic Indian collections calls. <a href="https://github.com/techi101/voice-agent-escalation-eval" target="_blank" rel="noopener">voice-agent-escalation-eval</a></p>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      <div id="paste-empty" class="card empty big" hidden>
+        <svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true"><rect x="10" y="8" width="28" height="34" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 18h16M16 24h16M16 30h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <p class="empty-title">Nothing analysed yet</p>
+        <p class="muted">Paste transcripts above and press Analyse, or load the example to see the format.</p>
+      </div>
+    </section>
+
+    <section class="wrap how" id="how">
+      <h2 class="section-title">How it works</h2>
+      <ol class="steps">
+        <li><span class="mono step-n">01</span><h3>Read the slots</h3><p>Each turn is normalised (nukta, <span lang="hi">ँ/ं</span>, ₹, commas) and scanned for numbers in Devanagari, romanised Hindi and English, including <span lang="hi">साढ़े, सवा, पौने, डेढ़, ढाई</span> and <span lang="hi">“छह हजार नौ सौ”</span> style compounds; the caller’s yes/no answer and negations; payment promises, “already paid” and refusals; and handoff, stop-calling and distress phrases.</p></li>
+        <li><span class="mono step-n">02</span><h3>Diff said vs heard</h3><p>Slots from the reference are matched to slots from the recogniser output. A number can be changed, dropped or inserted; a “no” can be lost or heard as “yes”; a promise can be lost, invented or flipped. Word-level alignment is shown for context only.</p></li>
+        <li><span class="mono step-n">03</span><h3>Simulate readback</h3><p>A policy may only use what the agent heard. A wrong value it heard gets read back and the caller can correct it; a value the recogniser dropped is invisible to a slot readback. Talk-time cost = readbacks × your seconds-per-readback.</p></li>
+        <li><span class="mono step-n">04</span><h3>Decide per campaign</h3><p>Filter by campaign to see where readback pays for itself. A BFSI reminder with many amounts and dates may want “Numbers”; a lead-qualification call may not.</p></li>
+      </ol>
+    </section>
+
+    <section class="wrap limits" id="limits">
+      <h2 class="section-title">Honest limits</h2>
+      <ul>
+        <li><strong>The sample is synthetic.</strong> 20 short calls written by hand with errors inserted on purpose, modelled on error types SquadStack describes publicly. The counts on this page describe that sample only, not any real recogniser or SquadStack’s agents.</li>
+        <li><strong>Rules, not a model.</strong> Slot extraction is word lists and patterns. It will miss paraphrases and rarer spellings; romanised “saath” (60) is skipped because it usually means “with”, and “do / दो” counts as 2 only next to another number word.</li>
+        <li><strong>Turns must be aligned.</strong> Said and heard text are compared turn by turn, as in the public benchmark’s normalised columns.</li>
+        <li><strong>Readback is simulated with a cooperative caller</strong> who always corrects a wrong value. Real callers sometimes say “haan” to anything.</li>
+        <li><strong>Benchmark import is untested on real rows.</strong> The parser follows the public dataset card of the SquadStack Conversational Streaming ASR Benchmark. The data is gated, and the author has not used it.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-in">
+      <p>Built by Nitesh Kumar Yadav (B.Tech ECE, AI &amp; ML, NSUT Delhi) as a proof of work. Independent project; not affiliated with or endorsed by SquadStack.</p>
+      <p class="mono muted">MIT · <a href="https://github.com/techi101/squadstack-readback" target="_blank" rel="noopener">source</a></p>
+    </div>
+  </footer>
+
+  <dialog id="call-dialog" aria-labelledby="dlg-title">
+    <div class="dlg-head">
+      <div><p class="mono muted" id="dlg-campaign"></p><h2 id="dlg-title"></h2></div>
+      <button class="icon-btn" id="dlg-close" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="legend small"><span><i class="sw sub"></i>misheard word</span><span><i class="sw del"></i>dropped</span><span><i class="sw ins"></i>inserted</span></div>
+    <div id="dlg-body" class="turns"></div>
+  </dialog>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
